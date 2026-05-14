@@ -1,0 +1,56 @@
+################################################################################
+# Content Services Helm Chart Values
+# Article, Company, Sector, Analytics APIs + RDS PostgreSQL + S3
+################################################################################
+
+replicaCount: 2
+
+image:
+  repository: ""
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 3001
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 8
+  targetCPUUtilizationPercentage: 70
+
+env:
+  NODE_ENV: production
+  PORT: "3001"
+  # Injected via external-secrets-operator from AWS Secrets Manager:
+  # DB_HOST, DB_NAME, DB_USER, DB_PASSWORD
+  # S3_BUCKET, SQS_CONTENT_QUEUE_URL
+
+serviceAccount:
+  create: true
+  name: content-service-sa
+  annotations:
+    eks.amazonaws.com/role-arn: ""  # Set at deploy time with IRSA ARN
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 3001
+  initialDelaySeconds: 30
+  periodSeconds: 15
+
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 3001
+  initialDelaySeconds: 10
+  periodSeconds: 5

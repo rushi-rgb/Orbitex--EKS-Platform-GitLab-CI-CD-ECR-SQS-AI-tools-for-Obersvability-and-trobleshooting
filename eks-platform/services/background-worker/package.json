@@ -1,0 +1,14 @@
+{
+  "name": "background-worker",
+  "version": "1.0.0",
+  "description": "SQS-driven background workers with KEDA autoscaling",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@aws-sdk/client-sqs": "^3.0.0",
+    "@aws-sdk/client-ses": "^3.0.0"
+  }
+}

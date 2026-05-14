@@ -1,0 +1,54 @@
+################################################################################
+# Auth Service Helm Chart Values
+# OTP Handler + Session Handler → Redis + RDS PostgreSQL
+################################################################################
+
+replicaCount: 2
+
+image:
+  repository: ""
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 3002
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+env:
+  NODE_ENV: production
+  PORT: "3002"
+  # Injected from Secrets Manager:
+  # REDIS_URL, DB_HOST, DB_NAME, JWT_SECRET, OTP_SECRET
+
+serviceAccount:
+  create: true
+  name: auth-service-sa
+  annotations:
+    eks.amazonaws.com/role-arn: ""  # IRSA ARN
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 3002
+  initialDelaySeconds: 20
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 3002
+  initialDelaySeconds: 10
+  periodSeconds: 5

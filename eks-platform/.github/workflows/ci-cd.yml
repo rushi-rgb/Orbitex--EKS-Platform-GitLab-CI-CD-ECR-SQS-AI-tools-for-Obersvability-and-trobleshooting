@@ -1,0 +1,110 @@
+name: CI/CD — Build, Push ECR, Deploy EKS
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+env:
+  AWS_REGION: us-east-1
+  PROJECT: eks-platform
+
+permissions:
+  id-token: write   # Required for OIDC
+  contents: read
+
+jobs:
+  # ── Terraform validate ──────────────────────────────────────────────────────
+  terraform-validate:
+    name: Terraform Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+      - run: |
+          cd terraform/envs/dev
+          terraform init -backend=false
+          terraform validate
+
+  # ── Build & Push ────────────────────────────────────────────────────────────
+  build-and-push:
+    name: Build & Push — ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    needs: terraform-validate
+    strategy:
+      matrix:
+        service:
+          - api-router
+          - content-service
+          - auth-service
+          - core-service
+          - ai-service
+          - background-worker
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build & push Docker image
+        env:
+          ENV: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+          SERVICE: ${{ matrix.service }}
+        run: |
+          IMAGE_URI="${{ steps.ecr-login.outputs.registry }}/${PROJECT}/${ENV}/${SERVICE}:${GITHUB_SHA::7}"
+          docker build -t "$IMAGE_URI" services/$SERVICE/
+          docker push "$IMAGE_URI"
+          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+
+  # ── Deploy to EKS ───────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to EKS
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref_name == 'main' || github.ref_name == 'dev'
+    env:
+      ENV: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name ${{ env.PROJECT }}-${{ env.ENV }}-cluster \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.13.0
+
+      - name: Deploy all services
+        run: |
+          ECR_REGISTRY="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
+          TAG="${GITHUB_SHA::7}"
+          for service in api-router content-services auth-service core-services ai-services background-workers; do
+            helm upgrade --install $service helm/$service/ \
+              --namespace platform \
+              --create-namespace \
+              --set image.repository="${ECR_REGISTRY}/${{ env.PROJECT }}/${{ env.ENV }}/${service}" \
+              --set image.tag="$TAG" \
+              --wait --timeout 5m
+          done

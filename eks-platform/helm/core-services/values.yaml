@@ -1,0 +1,53 @@
+################################################################################
+# Core Services Helm Chart Values
+# Search Service (OpenSearch) + User Service (RDS PostgreSQL)
+################################################################################
+
+replicaCount: 2
+
+image:
+  repository: ""
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 3003
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 8
+  targetCPUUtilizationPercentage: 70
+
+env:
+  NODE_ENV: production
+  PORT: "3003"
+  # Injected: OPENSEARCH_URL, DB_HOST, DB_NAME
+
+serviceAccount:
+  create: true
+  name: core-service-sa
+  annotations:
+    eks.amazonaws.com/role-arn: ""
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 3003
+  initialDelaySeconds: 30
+  periodSeconds: 15
+
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 3003
+  initialDelaySeconds: 15
+  periodSeconds: 5

@@ -1,0 +1,40 @@
+replicaCount: 1
+image:
+  repository: ""
+  tag: "latest"
+  pullPolicy: IfNotPresent
+service:
+  type: ClusterIP
+  port: 3004
+resources:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 60
+env:
+  NODE_ENV: production
+  PORT: "3004"
+serviceAccount:
+  create: true
+  name: ai-service-sa
+  annotations:
+    eks.amazonaws.com/role-arn: ""
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 3004
+  initialDelaySeconds: 30
+  periodSeconds: 15
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 3004
+  initialDelaySeconds: 15
+  periodSeconds: 5

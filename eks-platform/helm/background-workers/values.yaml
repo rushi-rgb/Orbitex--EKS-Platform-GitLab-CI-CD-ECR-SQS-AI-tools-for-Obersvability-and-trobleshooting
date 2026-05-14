@@ -1,0 +1,81 @@
+################################################################################
+# Background Workers Helm Chart Values
+# KEDA autoscaled SQS consumers
+################################################################################
+
+workers:
+  content:
+    name: content-worker
+    image:
+      repository: ""
+      tag: "latest"
+    queue: content-jobs-queue
+    minReplicas: 0
+    maxReplicas: 10
+    scaleThreshold: 10   # 1 replica per 10 messages
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  market:
+    name: market-data-worker
+    image:
+      repository: ""
+      tag: "latest"
+    queue: market-data-queue
+    minReplicas: 0
+    maxReplicas: 5
+    scaleThreshold: 5
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+
+  ai:
+    name: ai-worker
+    image:
+      repository: ""
+      tag: "latest"
+    queue: ai-jobs-queue
+    minReplicas: 0
+    maxReplicas: 8
+    scaleThreshold: 3
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 2000m
+        memory: 2Gi
+
+  notification:
+    name: notification-worker
+    image:
+      repository: ""
+      tag: "latest"
+    queue: notification-queue
+    minReplicas: 0
+    maxReplicas: 5
+    scaleThreshold: 20
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+aws:
+  region: us-east-1
+  accountId: ""   # Set via --set aws.accountId=YOUR_ACCOUNT_ID
+
+serviceAccount:
+  name: background-worker-sa
+  irsaRoleArn: ""  # Set via --set serviceAccount.irsaRoleArn=ARN

@@ -1,0 +1,73 @@
+################################################################################
+# API Router Helm Chart Values
+# Node.js + Nginx — Single Entry Point for all microservices
+################################################################################
+
+replicaCount: 2
+
+image:
+  repository: ""   # Set via --set image.repository=ACCOUNT.dkr.ecr.REGION.amazonaws.com/...
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 3000
+
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/certificate-arn: ""  # Set ACM cert ARN
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+  hosts:
+    - host: api.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+env:
+  NODE_ENV: production
+  PORT: "3000"
+  # Service URLs (cluster-internal)
+  CONTENT_SERVICE_URL: http://content-service.platform.svc.cluster.local:3001
+  AUTH_SERVICE_URL: http://auth-service.platform.svc.cluster.local:3002
+  CORE_SERVICE_URL: http://core-service.platform.svc.cluster.local:3003
+  AI_SERVICE_URL: http://ai-service.platform.svc.cluster.local:3004
+
+serviceAccount:
+  create: true
+  name: api-router-sa
+  annotations: {}
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 3000
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 3000
+  initialDelaySeconds: 10
+  periodSeconds: 5

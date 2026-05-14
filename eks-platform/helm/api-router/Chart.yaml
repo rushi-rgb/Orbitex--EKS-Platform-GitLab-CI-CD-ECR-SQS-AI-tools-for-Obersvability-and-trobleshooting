@@ -1,0 +1,6 @@
+apiVersion: v2
+name: api-router
+description: API Router — Node.js + Nginx single entry point for EKS platform
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

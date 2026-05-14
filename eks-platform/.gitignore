@@ -1,0 +1,37 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfplan
+.terraform.lock.hcl
+terraform.tfvars          # contains secrets — use CI/CD env vars
+!terraform.tfvars.example
+
+# Node.js
+node_modules/
+npm-debug.log*
+.env
+.env.local
+*.env
+
+# Build artifacts
+dist/
+build/
+*.zip
+
+# Kubernetes secrets
+*-secret.yaml
+kubeconfig
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Helm
+charts/
+*.tgz

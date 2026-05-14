@@ -1,0 +1,103 @@
+################################################################################
+# KEDA ScaledObjects — Auto-scale workers based on SQS queue depth
+# Applied via: kubectl apply -f k8s/keda/
+################################################################################
+
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: content-worker-scaler
+  namespace: platform
+spec:
+  scaleTargetRef:
+    name: content-worker
+  minReplicaCount: 0
+  maxReplicaCount: 10
+  cooldownPeriod: 60
+  triggers:
+    - type: aws-sqs-queue
+      authenticationRef:
+        name: keda-aws-credentials
+      metadata:
+        queueURL: ""  # Populated by Helm from SQS queue URL
+        queueLength: "10"
+        awsRegion: us-east-1
+        identityOwner: operator
+
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: market-data-worker-scaler
+  namespace: platform
+spec:
+  scaleTargetRef:
+    name: market-data-worker
+  minReplicaCount: 0
+  maxReplicaCount: 5
+  cooldownPeriod: 60
+  triggers:
+    - type: aws-sqs-queue
+      authenticationRef:
+        name: keda-aws-credentials
+      metadata:
+        queueURL: ""
+        queueLength: "5"
+        awsRegion: us-east-1
+        identityOwner: operator
+
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: ai-worker-scaler
+  namespace: platform
+spec:
+  scaleTargetRef:
+    name: ai-worker
+  minReplicaCount: 0
+  maxReplicaCount: 8
+  cooldownPeriod: 30
+  triggers:
+    - type: aws-sqs-queue
+      authenticationRef:
+        name: keda-aws-credentials
+      metadata:
+        queueURL: ""
+        queueLength: "3"
+        awsRegion: us-east-1
+        identityOwner: operator
+
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: notification-worker-scaler
+  namespace: platform
+spec:
+  scaleTargetRef:
+    name: notification-worker
+  minReplicaCount: 0
+  maxReplicaCount: 5
+  cooldownPeriod: 120
+  triggers:
+    - type: aws-sqs-queue
+      authenticationRef:
+        name: keda-aws-credentials
+      metadata:
+        queueURL: ""
+        queueLength: "20"
+        awsRegion: us-east-1
+        identityOwner: operator
+
+---
+# TriggerAuthentication — IRSA via pod identity
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: keda-aws-credentials
+  namespace: platform
+spec:
+  podIdentity:
+    provider: aws-eks

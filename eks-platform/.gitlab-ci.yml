@@ -1,0 +1,158 @@
+################################################################################
+# GitLab CI/CD Pipeline
+# Build → Test → Push ECR (OIDC, no static keys) → Deploy EKS (helm upgrade)
+################################################################################
+
+variables:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+  PROJECT: eks-platform
+  ENV: $CI_COMMIT_BRANCH  # dev → dev, main → prod
+
+stages:
+  - validate
+  - build
+  - test
+  - push
+  - deploy
+
+# ── OIDC Auth helper ──────────────────────────────────────────────────────────
+.aws_oidc: &aws_oidc
+  id_tokens:
+    AWS_OIDC_TOKEN:
+      aud: https://gitlab.com
+  before_script:
+    - apk add --no-cache aws-cli curl jq
+    - >
+      export $(printf "AWS_ACCESS_KEY_ID=%s AWS_SECRET_ACCESS_KEY=%s AWS_SESSION_TOKEN=%s"
+      $(aws sts assume-role-with-web-identity
+      --role-arn "${GITLAB_CI_ROLE_ARN}"
+      --role-session-name "gitlab-ci-${CI_JOB_ID}"
+      --web-identity-token "${AWS_OIDC_TOKEN}"
+      --duration-seconds 3600
+      --query "Credentials.[AccessKeyId,SecretAccessKey,SessionToken]"
+      --output text))
+    - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
+
+# ── Terraform validate ────────────────────────────────────────────────────────
+terraform:validate:
+  stage: validate
+  image: hashicorp/terraform:1.6
+  script:
+    - cd terraform/envs/dev && terraform init -backend=false && terraform validate
+  rules:
+    - changes: ["terraform/**/*"]
+
+# ── Build + Push each service ─────────────────────────────────────────────────
+.build_template: &build_template
+  stage: build
+  image: docker:24
+  services:
+    - docker:24-dind
+  <<: *aws_oidc
+  script:
+    - |
+      IMAGE_URI="${ECR_REGISTRY}/${PROJECT}/${TARGET_ENV}/${SERVICE}:${CI_COMMIT_SHORT_SHA}"
+      docker build -t "${IMAGE_URI}" services/${SERVICE}/
+      docker push "${IMAGE_URI}"
+      # Also tag as latest
+      docker tag "${IMAGE_URI}" "${ECR_REGISTRY}/${PROJECT}/${TARGET_ENV}/${SERVICE}:latest"
+      docker push "${ECR_REGISTRY}/${PROJECT}/${TARGET_ENV}/${SERVICE}:latest"
+      echo "IMAGE_URI=${IMAGE_URI}" > build.env
+  artifacts:
+    reports:
+      dotenv: build.env
+
+build:api-router:
+  <<: *build_template
+  variables:
+    SERVICE: api-router
+    TARGET_ENV: $ENV
+
+build:content-service:
+  <<: *build_template
+  variables:
+    SERVICE: content-service
+    TARGET_ENV: $ENV
+
+build:auth-service:
+  <<: *build_template
+  variables:
+    SERVICE: auth-service
+    TARGET_ENV: $ENV
+
+build:core-service:
+  <<: *build_template
+  variables:
+    SERVICE: core-service
+    TARGET_ENV: $ENV
+
+build:ai-service:
+  <<: *build_template
+  variables:
+    SERVICE: ai-service
+    TARGET_ENV: $ENV
+
+build:background-worker:
+  <<: *build_template
+  variables:
+    SERVICE: background-worker
+    TARGET_ENV: $ENV
+
+# ── Deploy to EKS ─────────────────────────────────────────────────────────────
+.deploy_template: &deploy_template
+  stage: deploy
+  image:
+    name: alpine/helm:3.13.0
+    entrypoint: [""]
+  <<: *aws_oidc
+  script:
+    - apk add --no-cache aws-cli curl
+    - aws eks update-kubeconfig --name "${PROJECT}-${ENV}-cluster" --region $AWS_REGION
+    - |
+      helm upgrade --install ${SERVICE} helm/${SERVICE}/ \
+        --namespace platform \
+        --create-namespace \
+        --set image.repository="${ECR_REGISTRY}/${PROJECT}/${ENV}/${SERVICE}" \
+        --set image.tag="${CI_COMMIT_SHORT_SHA}" \
+        --set serviceAccount.irsaRoleArn="${IRSA_ROLE_ARNS}" \
+        --wait --timeout 5m
+
+deploy:api-router:
+  <<: *deploy_template
+  needs: [build:api-router]
+  variables:
+    SERVICE: api-router
+  environment:
+    name: $ENV
+    url: https://api.example.com
+
+deploy:content-services:
+  <<: *deploy_template
+  needs: [build:content-service]
+  variables:
+    SERVICE: content-services
+
+deploy:auth-service:
+  <<: *deploy_template
+  needs: [build:auth-service]
+  variables:
+    SERVICE: auth-service
+
+deploy:core-services:
+  <<: *deploy_template
+  needs: [build:core-service]
+  variables:
+    SERVICE: core-services
+
+deploy:ai-services:
+  <<: *deploy_template
+  needs: [build:ai-service]
+  variables:
+    SERVICE: ai-services
+
+deploy:background-workers:
+  <<: *deploy_template
+  needs: [build:background-worker]
+  variables:
+    SERVICE: background-workers
