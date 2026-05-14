@@ -66,8 +66,8 @@ External Providers:
   • OAuth
 ```
 
-> **See full architecture diagram:** [`docs/architecture.png`](docs/EKS_setup_architecture.png)
-
+> **See full architecture diagram:** [`docs/architecture.png`](docs/eks-platform/docs/architecture.png)
+  #eks-platform/docs/architecture.png
 ---
 
 ## 📁 Project Structure
