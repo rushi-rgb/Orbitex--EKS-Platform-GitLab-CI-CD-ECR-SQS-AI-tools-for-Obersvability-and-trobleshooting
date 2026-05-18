@@ -1,4 +1,4 @@
-# 🚀 EKS Platform — GitLab CI/CD → ECR → EKS + SQS
+#  EKS Platform — GitLab CI/CD → ECR → EKS + SQS
 
 > Production-grade AWS EKS microservices platform with full IaC (Terraform), Helm charts, GitLab CI/CD, KEDA autoscaling, and observability stack.
 
