@@ -1,1 +1,183 @@
+## Install and Configure k8sgpt with Gemini API
+
+### 1. Install K8sGPT
+
+#### Linux (recommended)
+
+```bash
+curl -LO https://github.com/k8sgpt-ai/k8sgpt/releases/latest/download/k8sgpt_amd64.deb
+sudo dpkg -i k8sgpt_amd64.deb
+```
+
+#### Verify
+
+```bash
+k8sgpt version
+```
+
+---
+
+## 2. Get Gemini API Key
+
+1. Open: [Google AI Studio](https://aistudio.google.com/app/apikey?utm_source=chatgpt.com)
+2. Login with Google account
+3. Click **Create API Key**
+4. Copy the key
+
+---
+
+## 3. Configure Gemini in K8sGPT
+
+Run:
+
+```bash
+k8sgpt auth add \
+--backend googleai \
+--model gemini-1.5-flash \
+--password YOUR_GEMINI_API_KEY
+```
+
+Example:
+
+```bash
+k8sgpt auth add \
+--backend googleai \
+--model gemini-1.5-flash \
+--password AIzaSyXXXXXX
+```
+
+---
+
+## 4. Verify Authentication
+
+```bash
+k8sgpt auth list
+```
+
+You should see:
+
+```bash
+Default: true
+Backend: googleai
+Model: gemini-1.5-flash
+```
+
+---
+
+## 5. Connect to Kubernetes Cluster
+
+Check cluster access:
+
+```bash
+kubectl get nodes
+```
+
+If working, K8sGPT can scan the cluster.
+
+---
+
+## 6. Analyze Cluster Issues
+
+Basic scan:
+
+```bash
+k8sgpt analyze
+```
+
+Output example:
+
+```bash
+0: Deployment default/nginx failed
+- CrashLoopBackOff detected
+- Container image issue
+```
+
+---
+
+## 7. Get Detailed AI Explanation
+
+```bash
+k8sgpt analyze --explain
+```
+
+This uses Gemini AI to explain:
+
+* Pod failures
+* CrashLoopBackOff
+* Service issues
+* Ingress problems
+* PVC issues
+* DNS/networking issues
+
+---
+
+## 8. Useful Commands
+
+### Scan specific namespace
+
+```bash
+k8sgpt analyze -n dev
+```
+
+### Scan only pods
+
+```bash
+k8sgpt analyze --filter Pod
+```
+
+### Output in JSON
+
+```bash
+k8sgpt analyze -o json
+```
+
+---
+
+## 9. Optional — Install in Cluster (Operator Mode)
+
+Using Helm:
+
+```bash
+helm repo add k8sgpt https://charts.k8sgpt.ai
+helm repo update
+
+helm install k8sgpt-operator k8sgpt/k8sgpt-operator -n k8sgpt-system --create-namespace
+```
+
+---
+
+## Common Issue
+
+### Error:
+
+```bash
+no active authentication found
+```
+
+Fix:
+
+```bash
+k8sgpt auth list
+```
+
+If empty → re-add auth.
+
+---
+
+## Recommended Setup
+
+* Kubernetes: v1.27+
+* Kubectl configured
+* Gemini model:
+
+  * `gemini-1.5-flash` → fast + cheap
+  * `gemini-1.5-pro` → better reasoning
+
+---
+
+## Official Docs
+
+* [K8sGPT GitHub](https://github.com/k8sgpt-ai/k8sgpt?utm_source=chatgpt.com)
+* [K8sGPT Documentation](https://docs.k8sgpt.ai/?utm_source=chatgpt.com)
+* [Gemini API Docs](https://ai.google.dev/gemini-api/docs?utm_source=chatgpt.com)
 
