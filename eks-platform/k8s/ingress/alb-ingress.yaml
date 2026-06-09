@@ -1,5 +1,5 @@
 ################################################################################
-# ALB Ingress — Routes HTTPS traffic from Route53 → ALB → API Router pod
+# ALB Ingress — Routes HTTPS traffic from Route53 → ALB → API Router pod ##
 ################################################################################
 apiVersion: networking.k8s.io/v1
 kind: Ingress
