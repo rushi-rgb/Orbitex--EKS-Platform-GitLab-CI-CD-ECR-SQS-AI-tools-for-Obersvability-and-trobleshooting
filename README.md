@@ -3,7 +3,7 @@
 > Production-grade AWS EKS microservices platform with full IaC (Terraform), Helm charts, GitLab CI/CD, KEDA autoscaling, and observability stack.
 
 ---
-
+##
 ## 📐 Architecture Overview
 
 ```
